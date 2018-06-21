@@ -1,0 +1,4 @@
+my_http
+*.o
+resources/
+v1/
