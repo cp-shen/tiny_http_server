@@ -109,30 +109,34 @@ HTTPServer::HTTPServer(int port) : server_socket(-1), epoll_fd(-1), flag_exit(fa
     }
 }
 
-
 void HTTPServer::send_file(int soc_fd, std::ifstream &file){
-    // 1MB buffer
     const std::streamsize BUFF_SIZE = 1024 * 1024;
+    std::streamsize nb_read = 0;
+    std::streamsize nb_send = 0;
+    std::streamsize send_total = 0;
     char buff[BUFF_SIZE];
-    int nb_read = 0;
-    int nb_write = 0;
-
     while (true) {
         if(file.eof()){
             break;
         }
-        if (!file.is_open() || file.fail() || file.bad()) {
-            throw ServerException("failed to read the requested file");
+        if(!file.good()) {
+            // reset the ifstream
+            file.clear(std::ios::goodbit);
+            file.seekg(send_total, std::ios::beg);
         }
         file.read(buff, BUFF_SIZE);
         nb_read = file.gcount();
-        nb_write = send(soc_fd, buff, nb_read, 0);
-        if (nb_write == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-            throw ServerException("failed to send requested file");
+        nb_send = send(soc_fd, buff, nb_read, 0);
+        if (nb_send == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+            throw ServerException("failed to send requested file, errno = " + std::to_string(errno));
         }
-        if (nb_write != nb_read) {
-            file.seekg(nb_write - nb_read, std::ios::cur);
+        if(nb_send == -1){
+            nb_send = 0;
         }
+        if (nb_send != nb_read) {
+            file.seekg(nb_send - nb_read, std::ios::cur);
+        }
+        send_total += nb_send;
     }
     std::cout << "finished sending the file" << std::endl;
 }
@@ -258,7 +262,7 @@ void HTTPServer::respond_head(const std::string &uri, int soc_fd) {
     response << "\r\n";
 
     // send the response header
-    if( send(soc_fd, response.str().data(), response.str().size(), 0) < 0 ){
+    if( send(soc_fd, response.str().data(), response.str().size(), 0) != (ssize_t)response.str().size() ){
         throw ServerException("failed to send response head");
     }
 }
@@ -274,7 +278,7 @@ void HTTPServer::respond_get(const std::string &uri, int soc_fd){
     }
     else{
         std::string response ("404 Not Found");
-        if( send(soc_fd, response.data(), response.size(), 0) < 0 ){
+        if( send(soc_fd, response.data(), response.size(), 0) != (ssize_t)response.size() ){
             throw ServerException("failed to send not found msg");
         }
     }
@@ -354,7 +358,7 @@ void HTTPServer::respond_delete(const std::string &uri, int soc_fd){
     }
 
     // send the full response
-    if( send(soc_fd, response.str().data(), response.str().size(), 0) < 0 ){
+    if( send(soc_fd, response.str().data(), response.str().size(), 0) != (ssize_t)response.str().size() ){
         throw ServerException("failed to send response");
     }
 }
