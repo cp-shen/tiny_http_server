@@ -111,27 +111,27 @@ HTTPServer::HTTPServer(int port) : server_socket(-1), epoll_fd(-1), flag_exit(fa
 
 
 void HTTPServer::send_file(int soc_fd, std::ifstream &file){
-    const int BUFF_SIZE = 1024 * 1024;
+    // 1MB buffer
+    const std::streamsize BUFF_SIZE = 1024 * 1024;
     char buff[BUFF_SIZE];
     int nb_read = 0;
     int nb_write = 0;
 
     while (true) {
-        nb_read = file.readsome(buff, BUFF_SIZE);
-        if(nb_read == 0 || file.eof()){
+        if(file.eof()){
             break;
         }
+        if (!file.is_open() || file.fail() || file.bad()) {
+            throw ServerException("failed to read the requested file");
+        }
+        file.read(buff, BUFF_SIZE);
+        nb_read = file.gcount();
         nb_write = send(soc_fd, buff, nb_read, 0);
         if (nb_write == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
             throw ServerException("failed to send requested file");
         }
-        if (nb_write == nb_read) {
-            continue;
-        }
-        // nb_write != nb_read
-        file.seekg(nb_write - nb_read, std::ios::cur);
-        if (file.fail()) {
-            throw ServerException("failed to read the requested file");
+        if (nb_write != nb_read) {
+            file.seekg(nb_write - nb_read, std::ios::cur);
         }
     }
     std::cout << "finished sending the file" << std::endl;
