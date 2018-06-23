@@ -63,7 +63,7 @@ void HTTPServer::accept_and_add_new(int epoll_fd, int server_socket)
 
 HTTPServer::HTTPServer(int port) : server_socket(-1), epoll_fd(-1), flag_exit(false){
     // allocate the server socket
-    if( (server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+    if( (server_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1){
         throw ServerException("failed to allocate the server socket");
     }
 
@@ -87,7 +87,7 @@ HTTPServer::HTTPServer(int port) : server_socket(-1), epoll_fd(-1), flag_exit(fa
     }
 
     // listen to connections
-    if( listen(server_socket, 10) < 0){
+    if( listen(server_socket, 10) == -1){
         throw ServerException("failed to set the server socket to listening state");
     }
 
@@ -262,7 +262,7 @@ void HTTPServer::respond_head(const std::string &uri, int soc_fd) {
     response << "\r\n";
 
     // send the response header
-    if( send(soc_fd, response.str().data(), response.str().size(), 0) != (ssize_t)response.str().size() ){
+    if( send(soc_fd, response.str().data(), response.str().size(), 0) == -1){
         throw ServerException("failed to send response head");
     }
 }
@@ -278,7 +278,7 @@ void HTTPServer::respond_get(const std::string &uri, int soc_fd){
     }
     else{
         std::string response ("404 Not Found");
-        if( send(soc_fd, response.data(), response.size(), 0) != (ssize_t)response.size() ){
+        if( send(soc_fd, response.data(), response.size(), 0) == -1){
             throw ServerException("failed to send not found msg");
         }
     }
@@ -358,7 +358,7 @@ void HTTPServer::respond_delete(const std::string &uri, int soc_fd){
     }
 
     // send the full response
-    if( send(soc_fd, response.str().data(), response.str().size(), 0) != (ssize_t)response.str().size() ){
+    if( send(soc_fd, response.str().data(), response.str().size(), 0) == -1){
         throw ServerException("failed to send response");
     }
 }
